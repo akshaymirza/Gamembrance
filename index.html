@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GameVault — Your Game Library</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet" />
+</head>
+<body>
+
+  <!-- ===== NAVBAR ===== -->
+  <nav class="navbar" id="navbar">
+    <div class="nav-inner">
+      <a href="#" class="nav-logo" id="logo-btn">
+        <span class="logo-icon">⬡</span>
+        <span class="logo-text">GameVault</span>
+      </a>
+
+      <div class="nav-search">
+        <input type="text" id="search-input" placeholder="Search games..." autocomplete="off" />
+        <button id="search-btn" class="search-icon-btn" aria-label="Search">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        </button>
+      </div>
+
+      <div class="nav-actions">
+        <button class="nav-link" id="nav-home">Home</button>
+        <button class="nav-link" id="nav-mylist">My List</button>
+        <div class="user-chip" id="user-chip">
+          <span class="user-avatar" id="user-avatar-nav">?</span>
+          <span id="username-display">Guest</span>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ===== TOAST ===== -->
+  <div id="toast-container"></div>
+
+  <!-- ===== MODAL: USERNAME ===== -->
+  <div class="modal-overlay" id="username-modal" style="display:none;">
+    <div class="modal-box">
+      <h2>Welcome to <span class="accent">GameVault</span></h2>
+      <p>Enter a username to start tracking your games</p>
+      <input type="text" id="username-input" placeholder="Your username..." maxlength="20" />
+      <button id="username-save-btn" class="btn-primary">Let's Go</button>
+    </div>
+  </div>
+
+  <!-- ===== MODAL: GAME DETAIL ===== -->
+  <div class="modal-overlay" id="detail-modal" style="display:none;">
+    <div class="modal-box detail-box" id="detail-content">
+      <button class="modal-close" id="detail-close">✕</button>
+      <div id="detail-inner">Loading...</div>
+    </div>
+  </div>
+
+  <!-- ===== MAIN APP ===== -->
+  <main id="app">
+
+    <!-- ===== HOME VIEW ===== -->
+    <section id="home-view" class="view active">
+      <!-- Hero -->
+      <div class="hero">
+        <div class="hero-text">
+          <div class="hero-badge">✦ Your Personal Game Database</div>
+          <h1 class="hero-title">Track Every Game<br /><span class="accent">You've Ever Played</span></h1>
+          <p class="hero-sub">Discover, rate, and organize your gaming life. Powered by RAWG's massive database.</p>
+        </div>
+        <div class="hero-bg-art"></div>
+      </div>
+
+      <!-- Genre Filter -->
+      <div class="section-header">
+        <h2 class="section-title">Browse Games</h2>
+        <div class="filters">
+          <div class="genre-pills" id="genre-pills">
+            <button class="pill active" data-genre="">All</button>
+            <button class="pill" data-genre="4">Action</button>
+            <button class="pill" data-genre="51">Indie</button>
+            <button class="pill" data-genre="3">Adventure</button>
+            <button class="pill" data-genre="5">RPG</button>
+            <button class="pill" data-genre="10">Strategy</button>
+            <button class="pill" data-genre="2">Shooter</button>
+            <button class="pill" data-genre="7">Puzzle</button>
+          </div>
+          <select id="sort-select" class="sort-select">
+            <option value="-rating">Top Rated</option>
+            <option value="-added">Most Popular</option>
+            <option value="name">A → Z</option>
+            <option value="-name">Z → A</option>
+            <option value="-released">Newest</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Games Grid -->
+      <div class="games-grid" id="games-grid"></div>
+      <div id="loading-indicator" class="loading-wrap" style="display:none;">
+        <div class="spinner"></div>
+        <span>Loading games...</span>
+      </div>
+      <div id="load-more-wrap" style="display:none; text-align:center; padding: 2rem 0;">
+        <button id="load-more-btn" class="btn-primary">Load More</button>
+      </div>
+    </section>
+
+    <!-- ===== SEARCH VIEW ===== -->
+    <section id="search-view" class="view">
+      <div class="section-header">
+        <h2 class="section-title">Search Results: <span id="search-query-label" class="accent"></span></h2>
+      </div>
+      <div class="games-grid" id="search-grid"></div>
+      <div id="search-loading" class="loading-wrap" style="display:none;">
+        <div class="spinner"></div>
+        <span>Searching...</span>
+      </div>
+      <div id="search-empty" style="display:none;" class="empty-state">
+        <span class="empty-icon">🎮</span>
+        <p>No games found. Try a different search term.</p>
+      </div>
+    </section>
+
+    <!-- ===== MY LIST VIEW ===== -->
+    <section id="mylist-view" class="view">
+      <div class="mylist-header">
+        <div>
+          <h2 class="section-title">My Game Library</h2>
+          <p class="hero-sub" id="mylist-username-label">Loading...</p>
+        </div>
+        <div class="mylist-stats" id="mylist-stats"></div>
+      </div>
+
+      <div class="list-tabs">
+        <button class="list-tab active" data-tab="playing">🎮 Playing</button>
+        <button class="list-tab" data-tab="played">✅ Played</button>
+        <button class="list-tab" data-tab="plantoplay">📋 Plan to Play</button>
+      </div>
+
+      <div id="mylist-content"></div>
+      <div id="mylist-empty" class="empty-state" style="display:none;">
+        <span class="empty-icon">📭</span>
+        <p>No games here yet. Start exploring!</p>
+        <button class="btn-primary" id="go-browse">Browse Games</button>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="footer">
+    <p>Built with ❤️ using <a href="https://rawg.io/apidocs" target="_blank">RAWG API</a> · GameVault © 2025</p>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
