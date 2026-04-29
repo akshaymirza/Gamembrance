@@ -1,15 +1,13 @@
 /**
- * GAMEVAULT — script.js
+ * GAMEMBRANCE — script.js
  * Game tracking app powered by RAWG API
  * =======================================
- * SETUP: Replace YOUR_API_KEY below with your RAWG API key.
- * Get one free at: https://rawg.io/apidocs
  */
 
 // ============================================================
 //  CONFIG
 // ============================================================
-const API_KEY  = 'YOUR_API_KEY'; // <-- Replace with your RAWG API key
+const API_KEY  = 'c92ac207cd104660b10bcfda826ee538';
 const BASE_URL = 'https://api.rawg.io/api';
 
 // ============================================================
@@ -27,40 +25,33 @@ let searchDebounce  = null;
 //  LOCAL STORAGE HELPERS
 // ============================================================
 
-/** Get the full user library object from localStorage */
 function getLibrary() {
   return JSON.parse(localStorage.getItem('gv_library') || '{}');
 }
 
-/** Save the full user library object to localStorage */
 function saveLibrary(lib) {
   localStorage.setItem('gv_library', JSON.stringify(lib));
 }
 
-/** Get current username (or null if not set) */
 function getUsername() {
   return localStorage.getItem('gv_username') || null;
 }
 
-/** Save username to localStorage */
 function saveUsername(name) {
   localStorage.setItem('gv_username', name);
 }
 
-/** Get a single game's saved data from library */
 function getGameData(gameId) {
   const lib = getLibrary();
   return lib[gameId] || null;
 }
 
-/** Save data for a single game (status, rating, cover, title) */
 function saveGameData(gameId, data) {
   const lib = getLibrary();
   lib[gameId] = { ...lib[gameId], ...data };
   saveLibrary(lib);
 }
 
-/** Remove a game entry from library */
 function removeGame(gameId) {
   const lib = getLibrary();
   delete lib[gameId];
@@ -68,15 +59,39 @@ function removeGame(gameId) {
 }
 
 // ============================================================
+//  DATE HELPERS
+// ============================================================
+
+function getTodayStr() {
+  const d = new Date();
+  return d.toISOString().split('T')[0]; // YYYY-MM-DD
+}
+
+function getMonthRange() {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const lastDay = new Date(y, now.getMonth() + 1, 0).getDate();
+  return { start: `${y}-${m}-01`, end: `${y}-${m}-${lastDay}` };
+}
+
+function getYearRange() {
+  const y = new Date().getFullYear();
+  return { start: `${y}-01-01`, end: `${y}-12-31` };
+}
+
+function getMonthName() {
+  return new Date().toLocaleString('default', { month: 'long', year: 'numeric' });
+}
+
+function getYear() {
+  return new Date().getFullYear();
+}
+
+// ============================================================
 //  RAWG API CALLS
 // ============================================================
 
-/**
- * Fetch popular / filtered games
- * @param {number} page - page number
- * @param {string} genre - genre id (empty = all)
- * @param {string} ordering - sort field
- */
 async function fetchGames(page = 1, genre = '', ordering = '-rating') {
   const params = new URLSearchParams({
     key: API_KEY,
@@ -91,10 +106,6 @@ async function fetchGames(page = 1, genre = '', ordering = '-rating') {
   return res.json();
 }
 
-/**
- * Search games by query string
- * @param {string} query
- */
 async function searchGames(query) {
   const params = new URLSearchParams({
     key: API_KEY,
@@ -106,12 +117,38 @@ async function searchGames(query) {
   return res.json();
 }
 
-/**
- * Fetch full detail for a single game
- * @param {number|string} id - RAWG game id
- */
 async function fetchGameDetail(id) {
   const res = await fetch(`${BASE_URL}/games/${id}?key=${API_KEY}`);
+  if (!res.ok) throw new Error(`API error: ${res.status}`);
+  return res.json();
+}
+
+/**
+ * Fetch best game for a date range (by rating)
+ */
+async function fetchBestInRange(dateStart, dateEnd) {
+  const params = new URLSearchParams({
+    key: API_KEY,
+    page_size: 5,
+    ordering: '-rating',
+    dates: `${dateStart},${dateEnd}`,
+    ratings_count: 1,
+  });
+  const res = await fetch(`${BASE_URL}/games?${params}`);
+  if (!res.ok) throw new Error(`API error: ${res.status}`);
+  return res.json();
+}
+
+/**
+ * Fetch recently updated games (sorted by updated date)
+ */
+async function fetchRecentlyUpdated() {
+  const params = new URLSearchParams({
+    key: API_KEY,
+    page_size: 12,
+    ordering: '-updated',
+  });
+  const res = await fetch(`${BASE_URL}/games?${params}`);
   if (!res.ok) throw new Error(`API error: ${res.status}`);
   return res.json();
 }
@@ -120,11 +157,6 @@ async function fetchGameDetail(id) {
 //  TOAST NOTIFICATIONS
 // ============================================================
 
-/**
- * Show a small toast notification
- * @param {string} msg - message text
- * @param {'info'|'success'|'error'} type
- */
 function showToast(msg, type = 'info') {
   const icons = { info: 'ℹ️', success: '✅', error: '❌' };
   const el = document.createElement('div');
@@ -132,7 +164,6 @@ function showToast(msg, type = 'info') {
   el.innerHTML = `<span>${icons[type]}</span><span>${msg}</span>`;
   document.getElementById('toast-container').prepend(el);
 
-  // Auto-remove after 3 seconds
   setTimeout(() => {
     el.style.opacity = '0';
     el.style.transform = 'translateX(20px)';
@@ -142,10 +173,9 @@ function showToast(msg, type = 'info') {
 }
 
 // ============================================================
-//  NAVIGATION (VIEW SWITCHING)
+//  NAVIGATION
 // ============================================================
 
-/** Show a view by id, hide others */
 function showView(viewId) {
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   const el = document.getElementById(viewId);
@@ -158,35 +188,25 @@ function showView(viewId) {
 //  RENDER HELPERS
 // ============================================================
 
-/**
- * Build HTML for a game card
- * @param {Object} game - RAWG game object
- */
 function renderCard(game) {
-  const saved     = getGameData(game.id);
+  const saved      = getGameData(game.id);
   const userRating = saved?.rating || 0;
-  const status    = saved?.status || '';
+  const status     = saved?.status || '';
 
-  // Status badge
   const statusLabels = { playing: '🎮 Playing', played: '✅ Played', plantoplay: '📋 Plan to Play' };
   const statusBadge = status
     ? `<div class="card-status-badge badge-${status}">${statusLabels[status]}</div>`
     : '';
 
-  // RAWG rating badge
   const rawgRating = game.rating ? `⭐ ${game.rating.toFixed(1)}` : '';
-
-  // User's rating indicator
   const userRatingHtml = userRating
     ? `<span class="card-user-rating">★ ${userRating}/10</span>`
     : '';
 
-  // Cover image
   const imgHtml = game.background_image
     ? `<img src="${game.background_image}" alt="${escHtml(game.name)}" loading="lazy" />`
     : `<div class="card-img-placeholder">🎮</div>`;
 
-  // Genres list (first 2)
   const genres = (game.genres || []).slice(0, 2).map(g => g.name).join(', ');
 
   const card = document.createElement('div');
@@ -211,7 +231,6 @@ function renderCard(game) {
   return card;
 }
 
-/** HTML-escape a string to prevent XSS */
 function escHtml(str) {
   if (!str) return '';
   return String(str)
@@ -222,10 +241,131 @@ function escHtml(str) {
 }
 
 // ============================================================
+//  SPOTLIGHT: BEST TODAY / MONTH / YEAR
+// ============================================================
+
+/**
+ * Render a spotlight mini-card inside a container
+ */
+function renderSpotlightGame(game, containerId) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+
+  if (!game) {
+    el.innerHTML = `<div class="spotlight-empty">No data available for this period.</div>`;
+    return;
+  }
+
+  const img = game.background_image
+    ? `<img src="${game.background_image}" alt="${escHtml(game.name)}" class="spotlight-img" loading="lazy" />`
+    : `<div class="spotlight-img spotlight-img-placeholder">🎮</div>`;
+
+  const rating = game.rating ? `⭐ ${game.rating.toFixed(1)}` : 'N/A';
+  const year   = game.released ? new Date(game.released).getFullYear() : '';
+  const genres = (game.genres || []).slice(0, 2).map(g => g.name).join(' · ') || '';
+
+  el.innerHTML = `
+    <div class="spotlight-game" data-id="${game.id}">
+      ${img}
+      <div class="spotlight-info">
+        <div class="spotlight-game-title">${escHtml(game.name)}</div>
+        <div class="spotlight-game-meta">
+          <span class="spotlight-rating">${rating}</span>
+          ${genres ? `<span class="spotlight-genres">${escHtml(genres)}</span>` : ''}
+          ${year ? `<span class="spotlight-year">${year}</span>` : ''}
+        </div>
+      </div>
+    </div>
+  `;
+
+  el.querySelector('.spotlight-game').addEventListener('click', () => openDetailModal(game.id));
+}
+
+async function loadSpotlights() {
+  const today = getTodayStr();
+  const month = getMonthRange();
+  const year  = getYearRange();
+
+  // Update labels
+  const monthLabel = document.getElementById('spotlight-month-label');
+  const yearLabel  = document.getElementById('spotlight-year-label');
+  if (monthLabel) monthLabel.textContent = getMonthName();
+  if (yearLabel)  yearLabel.textContent  = `Best of ${getYear()}`;
+
+  // Load all 3 in parallel
+  const [todayData, monthData, yearData] = await Promise.allSettled([
+    fetchBestInRange(today, today),
+    fetchBestInRange(month.start, month.end),
+    fetchBestInRange(year.start, year.end),
+  ]);
+
+  // Today
+  const todayGame = todayData.status === 'fulfilled' ? (todayData.value.results?.[0] || null) : null;
+  renderSpotlightGame(todayGame, 'spotlight-today-content');
+
+  // Month
+  const monthGame = monthData.status === 'fulfilled' ? (monthData.value.results?.[0] || null) : null;
+  renderSpotlightGame(monthGame, 'spotlight-month-content');
+
+  // Year
+  const yearGame = yearData.status === 'fulfilled' ? (yearData.value.results?.[0] || null) : null;
+  renderSpotlightGame(yearGame, 'spotlight-year-content');
+}
+
+// ============================================================
+//  RECENTLY UPDATED
+// ============================================================
+
+async function loadRecentlyUpdated() {
+  const container = document.getElementById('recently-updated-grid');
+  if (!container) return;
+
+  container.innerHTML = `<div class="loading-wrap" style="padding:2rem;"><div class="spinner"></div><span>Loading updates...</span></div>`;
+
+  try {
+    const data = await fetchRecentlyUpdated();
+    const games = data.results || [];
+
+    if (!games.length) {
+      container.innerHTML = `<div class="spotlight-empty">No recent updates found.</div>`;
+      return;
+    }
+
+    container.innerHTML = '';
+    games.forEach((game, i) => {
+      const img = game.background_image
+        ? `<img src="${game.background_image}" alt="${escHtml(game.name)}" loading="lazy" />`
+        : `<div class="updated-card-placeholder">🎮</div>`;
+
+      const updated = game.updated
+        ? new Date(game.updated).toLocaleDateString('en-US', { month:'short', day:'numeric' })
+        : '';
+
+      const card = document.createElement('div');
+      card.className = 'updated-card';
+      card.style.animationDelay = `${i * 40}ms`;
+      card.innerHTML = `
+        <div class="updated-card-img">${img}</div>
+        <div class="updated-card-body">
+          <div class="updated-card-title">${escHtml(game.name)}</div>
+          ${updated ? `<div class="updated-card-date">Updated ${updated}</div>` : ''}
+          ${game.rating ? `<div class="updated-card-rating">⭐ ${game.rating.toFixed(1)}</div>` : ''}
+        </div>
+      `;
+      card.addEventListener('click', () => openDetailModal(game.id));
+      container.appendChild(card);
+    });
+
+  } catch (err) {
+    console.error('Failed to load recently updated:', err);
+    container.innerHTML = `<div class="spotlight-empty">Failed to load updates.</div>`;
+  }
+}
+
+// ============================================================
 //  HOME VIEW — LOAD GAMES
 // ============================================================
 
-/** Load games into the home grid */
 async function loadGames(reset = false) {
   if (isLoading) return;
 
@@ -235,16 +375,15 @@ async function loadGames(reset = false) {
   }
 
   isLoading = true;
-  const loadingEl  = document.getElementById('loading-indicator');
+  const loadingEl   = document.getElementById('loading-indicator');
   const loadMoreWrap = document.getElementById('load-more-wrap');
-  loadingEl.style.display  = 'flex';
+  loadingEl.style.display   = 'flex';
   loadMoreWrap.style.display = 'none';
 
   try {
     const data = await fetchGames(currentPage, currentGenre, currentOrdering);
     const grid = document.getElementById('games-grid');
 
-    // Stagger card animations
     (data.results || []).forEach((game, i) => {
       const card = renderCard(game);
       card.style.animationDelay = `${i * 30}ms`;
@@ -267,7 +406,6 @@ async function loadGames(reset = false) {
 //  SEARCH
 // ============================================================
 
-/** Execute a search and display results */
 async function doSearch(query) {
   if (!query.trim()) return;
 
@@ -304,7 +442,6 @@ async function doSearch(query) {
 //  DETAIL MODAL
 // ============================================================
 
-/** Open the detail modal for a given game id */
 async function openDetailModal(gameId) {
   const overlay = document.getElementById('detail-modal');
   const inner   = document.getElementById('detail-inner');
@@ -326,36 +463,27 @@ async function openDetailModal(gameId) {
   }
 }
 
-/**
- * Render the detail modal with game data
- * @param {Object} game - full RAWG game object
- */
 function renderDetailModal(game) {
-  const inner   = document.getElementById('detail-inner');
-  const saved   = getGameData(game.id);
-  const curStatus = saved?.status || '';
-  const curRating = saved?.rating || 0;
+  const inner    = document.getElementById('detail-inner');
+  const saved    = getGameData(game.id);
+  const curStatus  = saved?.status || '';
+  const curRating  = saved?.rating || 0;
 
-  // Strip HTML tags from description
   const description = game.description
     ? game.description.replace(/<[^>]+>/g, '').trim()
     : 'No description available.';
 
-  // Genres and platforms
-  const genres = (game.genres || []).map(g => g.name).join(', ') || 'N/A';
+  const genres    = (game.genres || []).map(g => g.name).join(', ') || 'N/A';
   const platforms = (game.platforms || []).slice(0, 4).map(p => p.platform.name).join(', ') || 'N/A';
 
-  // Release date
   const releaseDate = game.released
     ? new Date(game.released).toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' })
     : 'TBA';
 
-  // Cover image
   const coverHtml = game.background_image
     ? `<img src="${game.background_image}" alt="${escHtml(game.name)}" />`
     : `<div style="height:100%;display:flex;align-items:center;justify-content:center;font-size:4rem;background:var(--bg-surface)">🎮</div>`;
 
-  // Status buttons
   const statuses = [
     { key: 'playing',    label: '🎮 Playing',      cls: 'active-playing' },
     { key: 'played',     label: '✅ Played',        cls: 'active-played' },
@@ -369,7 +497,6 @@ function renderDetailModal(game) {
     </button>
   `).join('');
 
-  // Star rating HTML
   const starsHtml = Array.from({length: 10}, (_, i) => `
     <span class="star ${i < curRating ? 'lit' : ''}" data-value="${i+1}" title="${i+1}/10">★</span>
   `).join('');
@@ -410,7 +537,7 @@ function renderDetailModal(game) {
 
       <div class="detail-actions">
         <div>
-          <div class="rating-label" style="margin-bottom:0.5rem">Add to list:</div>
+          <div class="rating-label" style="margin-bottom:0.5rem">Add to memory:</div>
           <div class="list-btn-group" id="status-btn-group">
             ${statusBtns}
             ${curStatus ? `<button class="btn-danger" id="btn-remove-list">Remove</button>` : ''}
@@ -430,7 +557,6 @@ function renderDetailModal(game) {
     </div>
   `;
 
-  // Save basic info for library use (needed even before user interacts)
   const basicInfo = {
     title: game.name,
     cover: game.background_image || '',
@@ -438,7 +564,7 @@ function renderDetailModal(game) {
     release: game.released || '',
   };
 
-  // ── Description toggle ──────────────────────
+  // Description toggle
   const descEl    = document.getElementById('detail-desc');
   const toggleBtn = document.getElementById('desc-toggle');
   if (description.length < 200) toggleBtn.style.display = 'none';
@@ -448,16 +574,13 @@ function renderDetailModal(game) {
     toggleBtn.textContent = expanded ? 'Show less ▴' : 'Show more ▾';
   });
 
-  // ── Status buttons ──────────────────────────
+  // Status buttons
   document.querySelectorAll('#status-btn-group .list-btn[data-status]').forEach(btn => {
     btn.addEventListener('click', () => {
       const status = btn.dataset.status;
-      const prevStatus = getGameData(game.id)?.status;
-
       saveGameData(game.id, { ...basicInfo, status });
       showToast(`Added to "${status === 'plantoplay' ? 'Plan to Play' : status.charAt(0).toUpperCase() + status.slice(1)}"!`, 'success');
 
-      // Refresh button states
       document.querySelectorAll('#status-btn-group .list-btn[data-status]').forEach(b => {
         b.className = 'list-btn';
         if (b.dataset.status === status) {
@@ -465,7 +588,6 @@ function renderDetailModal(game) {
         }
       });
 
-      // Add/refresh remove button
       let removeBtn = document.getElementById('btn-remove-list');
       if (!removeBtn) {
         removeBtn = document.createElement('button');
@@ -480,7 +602,6 @@ function renderDetailModal(game) {
     });
   });
 
-  // ── Remove from list ────────────────────────
   const removeBtn = document.getElementById('btn-remove-list');
   if (removeBtn) {
     removeBtn.addEventListener('click', () => removeFromList(game.id));
@@ -488,14 +609,14 @@ function renderDetailModal(game) {
 
   function removeFromList(id) {
     removeGame(id);
-    showToast('Removed from library', 'info');
+    showToast('Removed from memory', 'info');
     document.querySelectorAll(`#status-btn-group .list-btn[data-status]`).forEach(b => b.className = 'list-btn');
     document.getElementById('btn-remove-list')?.remove();
     refreshGridCards(id);
   }
 
-  // ── Star rating ─────────────────────────────
-  const stars       = document.querySelectorAll('#star-rating-container .star');
+  // Star rating
+  const stars        = document.querySelectorAll('#star-rating-container .star');
   const scoreDisplay = document.getElementById('rating-score-display');
   let savedRating    = curRating;
 
@@ -521,10 +642,6 @@ function renderDetailModal(game) {
   });
 }
 
-/**
- * Re-render all visible cards for a given game id
- * (to reflect status / rating changes without full reload)
- */
 function refreshGridCards(gameId) {
   document.querySelectorAll(`.game-card[data-id="${gameId}"]`).forEach(card => {
     const saved      = getGameData(gameId);
@@ -533,7 +650,6 @@ function refreshGridCards(gameId) {
 
     const statusLabels = { playing: '🎮 Playing', played: '✅ Played', plantoplay: '📋 Plan to Play' };
 
-    // Update status badge
     let badge = card.querySelector('.card-status-badge');
     if (status) {
       if (!badge) {
@@ -546,7 +662,6 @@ function refreshGridCards(gameId) {
       badge.remove();
     }
 
-    // Update user rating
     let ratingEl = card.querySelector('.card-user-rating');
     if (userRating) {
       if (!ratingEl) {
@@ -562,17 +677,15 @@ function refreshGridCards(gameId) {
 }
 
 // ============================================================
-//  MY LIST VIEW
+//  MY MEMORY VIEW
 // ============================================================
 
-/** Render the user's library in the My List view */
 function renderMyList(activeTab = 'playing') {
   const lib   = getLibrary();
   const uname = getUsername() || 'Guest';
 
-  document.getElementById('mylist-username-label').textContent = `${uname}'s Game Library`;
+  document.getElementById('mylist-username-label').textContent = `${uname}'s Game Memory`;
 
-  // Stats
   const counts = { playing: 0, played: 0, plantoplay: 0 };
   Object.values(lib).forEach(g => { if (g.status) counts[g.status] = (counts[g.status] || 0) + 1; });
 
@@ -591,7 +704,6 @@ function renderMyList(activeTab = 'playing') {
     </div>
   `;
 
-  // Filter by active tab
   const filtered = Object.entries(lib).filter(([, g]) => g.status === activeTab);
   const content  = document.getElementById('mylist-content');
   const emptyEl  = document.getElementById('mylist-empty');
@@ -631,13 +743,11 @@ function renderMyList(activeTab = 'playing') {
       </div>
     `;
 
-    // View detail
     item.querySelector('[data-detail-id]').addEventListener('click', () => openDetailModal(id));
 
-    // Remove
     item.querySelector('[data-remove-id]').addEventListener('click', () => {
       removeGame(id);
-      showToast('Removed from library', 'info');
+      showToast('Removed from memory', 'info');
       renderMyList(activeTab);
     });
 
@@ -649,17 +759,14 @@ function renderMyList(activeTab = 'playing') {
 //  USERNAME MODAL
 // ============================================================
 
-/** Show the username prompt modal */
 function showUsernameModal() {
   document.getElementById('username-modal').style.display = 'flex';
 }
 
-/** Hide the username prompt modal */
 function hideUsernameModal() {
   document.getElementById('username-modal').style.display = 'none';
 }
 
-/** Update navbar username display */
 function updateNavUsername() {
   const uname = getUsername();
   if (uname) {
@@ -677,13 +784,12 @@ function updateNavUsername() {
 
 document.addEventListener('DOMContentLoaded', () => {
 
-  // ── Username check ──────────────────────────
+  // Username check
   if (!getUsername()) {
     showUsernameModal();
   }
   updateNavUsername();
 
-  // Save username
   document.getElementById('username-save-btn').addEventListener('click', () => {
     const val = document.getElementById('username-input').value.trim();
     if (val) {
@@ -698,10 +804,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e.key === 'Enter') document.getElementById('username-save-btn').click();
   });
 
-  // Click username chip to allow rename
   document.getElementById('user-chip').addEventListener('click', showUsernameModal);
 
-  // ── Navigation ──────────────────────────────
+  // Navigation
   document.getElementById('nav-home').addEventListener('click', () => {
     showView('home-view');
     document.getElementById('search-input').value = '';
@@ -722,7 +827,12 @@ document.addEventListener('DOMContentLoaded', () => {
     showView('home-view');
   });
 
-  // ── Search ──────────────────────────────────
+  // Refresh recently updated
+  document.getElementById('refresh-updated-btn')?.addEventListener('click', () => {
+    loadRecentlyUpdated();
+  });
+
+  // Search
   const searchInput = document.getElementById('search-input');
 
   searchInput.addEventListener('input', () => {
@@ -748,7 +858,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // ── Genre pills ─────────────────────────────
+  // Genre pills
   document.getElementById('genre-pills').addEventListener('click', e => {
     const pill = e.target.closest('.pill');
     if (!pill) return;
@@ -759,19 +869,19 @@ document.addEventListener('DOMContentLoaded', () => {
     loadGames(true);
   });
 
-  // ── Sort select ─────────────────────────────
+  // Sort select
   document.getElementById('sort-select').addEventListener('change', e => {
     currentOrdering = e.target.value;
     loadGames(true);
   });
 
-  // ── Load more ───────────────────────────────
+  // Load more
   document.getElementById('load-more-btn').addEventListener('click', () => {
     currentPage++;
     loadGames(false);
   });
 
-  // ── Detail modal close ──────────────────────
+  // Detail modal close
   document.getElementById('detail-close').addEventListener('click', () => {
     document.getElementById('detail-modal').style.display = 'none';
   });
@@ -782,7 +892,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // ── My List tabs ────────────────────────────
+  // My Memory tabs
   document.querySelectorAll('.list-tab').forEach(tab => {
     tab.addEventListener('click', () => {
       document.querySelectorAll('.list-tab').forEach(t => t.classList.remove('active'));
@@ -791,7 +901,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // ── Keyboard shortcut: Escape closes modal ──
+  // Escape closes modals
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') {
       document.getElementById('detail-modal').style.display = 'none';
@@ -799,7 +909,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // ── Initial load ────────────────────────────
+  // Initial load
   showView('home-view');
+  loadSpotlights();
+  loadRecentlyUpdated();
   loadGames(true);
 });

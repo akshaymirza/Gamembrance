@@ -1,5 +1,5 @@
 /* ========================================
-   GAMEVAULT — STYLESHEET
+   GAMEMBRANCE — STYLESHEET
    Dark Gaming aesthetic with neon accents
    ======================================== */
 
@@ -307,6 +307,224 @@ body {
 
 .sort-select:hover, .sort-select:focus { border-color: var(--accent); }
 
+/* ===================================================
+   SPOTLIGHT ROW — Best Today / Month / Year
+   =================================================== */
+.spotlight-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.25rem;
+  margin-bottom: 0.5rem;
+}
+
+.spotlight-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  transition: border-color 0.25s, box-shadow 0.25s;
+}
+
+.spotlight-card:hover {
+  border-color: var(--border-accent);
+  box-shadow: var(--shadow-glow);
+}
+
+.spotlight-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem 0.85rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.spotlight-icon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+
+.spotlight-title {
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--text-primary);
+}
+
+.spotlight-sub {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  margin-top: 0.15rem;
+}
+
+.spotlight-body {
+  padding: 0;
+}
+
+.spotlight-game {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.9rem 1.25rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.spotlight-game:hover { background: var(--bg-card-hov); }
+
+.spotlight-img {
+  width: 80px;
+  height: 52px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+  background: var(--bg-surface);
+}
+
+.spotlight-img-placeholder {
+  width: 80px;
+  height: 52px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+}
+
+.spotlight-info { flex: 1; min-width: 0; }
+
+.spotlight-game-title {
+  font-family: var(--font-display);
+  font-size: 0.92rem;
+  font-weight: 600;
+  line-height: 1.3;
+  margin-bottom: 0.3rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.spotlight-game-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+  font-size: 0.72rem;
+}
+
+.spotlight-rating {
+  color: var(--gold);
+  font-weight: 600;
+}
+
+.spotlight-genres {
+  color: var(--text-muted);
+}
+
+.spotlight-year {
+  color: var(--text-muted);
+  background: var(--bg-surface);
+  border-radius: 4px;
+  padding: 0.1rem 0.35rem;
+  font-size: 0.68rem;
+}
+
+.spotlight-empty {
+  padding: 1.25rem;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+/* ===================================================
+   RECENTLY UPDATED — Horizontal scroll strip
+   =================================================== */
+.recently-updated-scroll {
+  display: flex;
+  gap: 1rem;
+  overflow-x: auto;
+  padding-bottom: 0.75rem;
+  scrollbar-width: thin;
+  scrollbar-color: var(--text-muted) transparent;
+}
+
+.recently-updated-scroll::-webkit-scrollbar { height: 5px; }
+.recently-updated-scroll::-webkit-scrollbar-thumb { background: var(--text-muted); border-radius: 99px; }
+.recently-updated-scroll::-webkit-scrollbar-track { background: transparent; }
+
+.updated-card {
+  flex-shrink: 0;
+  width: 160px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.22s, border-color 0.22s, box-shadow 0.22s;
+  animation: fadeUp 0.35s ease both;
+}
+
+.updated-card:hover {
+  transform: translateY(-5px);
+  border-color: var(--border-accent);
+  box-shadow: var(--shadow-glow);
+}
+
+.updated-card-img {
+  width: 100%;
+  aspect-ratio: 16/10;
+  overflow: hidden;
+  background: var(--bg-surface);
+}
+
+.updated-card-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.35s;
+}
+
+.updated-card:hover .updated-card-img img { transform: scale(1.06); }
+
+.updated-card-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.8rem;
+  background: linear-gradient(135deg, var(--bg-surface), var(--bg-card-hov));
+}
+
+.updated-card-body {
+  padding: 0.6rem 0.7rem 0.7rem;
+}
+
+.updated-card-title {
+  font-family: var(--font-display);
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1.3;
+  margin-bottom: 0.25rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.updated-card-date {
+  font-size: 0.68rem;
+  color: var(--accent);
+  margin-bottom: 0.15rem;
+}
+
+.updated-card-rating {
+  font-size: 0.72rem;
+  color: var(--gold);
+  font-weight: 600;
+}
+
 /* === GAMES GRID === */
 .games-grid {
   display: grid;
@@ -376,8 +594,8 @@ body {
   backdrop-filter: blur(8px);
 }
 
-.badge-playing  { background: rgba(0,229,255,0.85); color: #000; }
-.badge-played   { background: rgba(0,200,100,0.85); color: #000; }
+.badge-playing    { background: rgba(0,229,255,0.85); color: #000; }
+.badge-played     { background: rgba(0,200,100,0.85); color: #000; }
 .badge-plantoplay { background: rgba(255,209,102,0.85); color: #000; }
 
 .card-rating-badge {
@@ -696,8 +914,8 @@ body {
 
 .list-btn:hover { border-color: var(--accent); color: var(--text-primary); }
 .list-btn.active-btn { background: var(--accent); border-color: var(--accent); color: #000; font-weight: 600; }
-.list-btn.active-playing { background: var(--accent); border-color: var(--accent); color: #000; }
-.list-btn.active-played  { background: #00c864; border-color: #00c864; color: #000; }
+.list-btn.active-playing    { background: var(--accent); border-color: var(--accent); color: #000; }
+.list-btn.active-played     { background: #00c864; border-color: #00c864; color: #000; }
 .list-btn.active-plantoplay { background: var(--gold); border-color: var(--gold); color: #000; }
 
 .rating-section { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
@@ -729,7 +947,7 @@ body {
   min-width: 40px;
 }
 
-/* === MY LIST === */
+/* === MY MEMORY === */
 .mylist-header {
   display: flex;
   justify-content: space-between;
@@ -898,6 +1116,10 @@ body {
 .footer a:hover { text-decoration: underline; }
 
 /* === RESPONSIVE === */
+@media (max-width: 900px) {
+  .spotlight-row { grid-template-columns: 1fr; }
+}
+
 @media (max-width: 768px) {
   .nav-inner { gap: 0.75rem; }
   .logo-text { display: none; }
@@ -927,4 +1149,5 @@ body {
   .genre-pills { gap: 0.3rem; }
   .pill { font-size: 0.76rem; padding: 0.28rem 0.7rem; }
   .games-grid { grid-template-columns: repeat(2, 1fr); }
+  .updated-card { width: 135px; }
 }

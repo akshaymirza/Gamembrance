@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>GameVault — Your Game Library</title>
+  <title>GameMbrance — Your Game Library</title>
   <link rel="stylesheet" href="style.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -16,7 +16,7 @@
     <div class="nav-inner">
       <a href="#" class="nav-logo" id="logo-btn">
         <span class="logo-icon">⬡</span>
-        <span class="logo-text">GameVault</span>
+        <span class="logo-text">GameMbrance</span>
       </a>
 
       <div class="nav-search">
@@ -28,7 +28,7 @@
 
       <div class="nav-actions">
         <button class="nav-link" id="nav-home">Home</button>
-        <button class="nav-link" id="nav-mylist">My List</button>
+        <button class="nav-link" id="nav-mylist">My Memory</button>
         <div class="user-chip" id="user-chip">
           <span class="user-avatar" id="user-avatar-nav">?</span>
           <span id="username-display">Guest</span>
@@ -43,7 +43,7 @@
   <!-- ===== MODAL: USERNAME ===== -->
   <div class="modal-overlay" id="username-modal" style="display:none;">
     <div class="modal-box">
-      <h2>Welcome to <span class="accent">GameVault</span></h2>
+      <h2>Welcome to <span class="accent">GameMbrance</span></h2>
       <p>Enter a username to start tracking your games</p>
       <input type="text" id="username-input" placeholder="Your username..." maxlength="20" />
       <button id="username-save-btn" class="btn-primary">Let's Go</button>
@@ -67,14 +67,68 @@
       <div class="hero">
         <div class="hero-text">
           <div class="hero-badge">✦ Your Personal Game Database</div>
-          <h1 class="hero-title">Track Every Game<br /><span class="accent">You've Ever Played</span></h1>
-          <p class="hero-sub">Discover, rate, and organize your gaming life. Powered by RAWG's massive database.</p>
+          <h1 class="hero-title">Remember Every Game<br /><span class="accent">You've Ever Played</span></h1>
+          <p class="hero-sub">Discover, rate, and organize your gaming memories. Powered by RAWG's massive database.</p>
         </div>
         <div class="hero-bg-art"></div>
       </div>
 
+      <!-- ===== SPOTLIGHT SECTIONS ===== -->
+      <div class="spotlight-row">
+        <!-- Best of Today -->
+        <div class="spotlight-card" id="spotlight-today-card">
+          <div class="spotlight-header">
+            <span class="spotlight-icon">🔥</span>
+            <div>
+              <div class="spotlight-title">Best Game Today</div>
+              <div class="spotlight-sub">Top rated · Released today</div>
+            </div>
+          </div>
+          <div id="spotlight-today-content" class="spotlight-body">
+            <div class="loading-wrap" style="padding:1.5rem;"><div class="spinner"></div></div>
+          </div>
+        </div>
+
+        <!-- Best of Month -->
+        <div class="spotlight-card" id="spotlight-month-card">
+          <div class="spotlight-header">
+            <span class="spotlight-icon">📅</span>
+            <div>
+              <div class="spotlight-title">Best Game This Month</div>
+              <div class="spotlight-sub" id="spotlight-month-label">Loading...</div>
+            </div>
+          </div>
+          <div id="spotlight-month-content" class="spotlight-body">
+            <div class="loading-wrap" style="padding:1.5rem;"><div class="spinner"></div></div>
+          </div>
+        </div>
+
+        <!-- Best of Year -->
+        <div class="spotlight-card" id="spotlight-year-card">
+          <div class="spotlight-header">
+            <span class="spotlight-icon">🏆</span>
+            <div>
+              <div class="spotlight-title">Best Game This Year</div>
+              <div class="spotlight-sub" id="spotlight-year-label">Loading...</div>
+            </div>
+          </div>
+          <div id="spotlight-year-content" class="spotlight-body">
+            <div class="loading-wrap" style="padding:1.5rem;"><div class="spinner"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== RECENTLY UPDATED ===== -->
+      <div class="section-header" style="margin-top:2.5rem;">
+        <h2 class="section-title">🆕 Recently Updated</h2>
+        <button class="btn-outline" id="refresh-updated-btn" style="font-size:0.82rem;padding:0.35rem 0.9rem;">Refresh</button>
+      </div>
+      <div class="recently-updated-scroll" id="recently-updated-grid">
+        <div class="loading-wrap" style="padding:2rem;"><div class="spinner"></div><span>Loading updates...</span></div>
+      </div>
+
       <!-- Genre Filter -->
-      <div class="section-header">
+      <div class="section-header" style="margin-top:2.5rem;">
         <h2 class="section-title">Browse Games</h2>
         <div class="filters">
           <div class="genre-pills" id="genre-pills">
@@ -124,11 +178,11 @@
       </div>
     </section>
 
-    <!-- ===== MY LIST VIEW ===== -->
+    <!-- ===== MY MEMORY VIEW ===== -->
     <section id="mylist-view" class="view">
       <div class="mylist-header">
         <div>
-          <h2 class="section-title">My Game Library</h2>
+          <h2 class="section-title">My Game Memory</h2>
           <p class="hero-sub" id="mylist-username-label">Loading...</p>
         </div>
         <div class="mylist-stats" id="mylist-stats"></div>
@@ -151,7 +205,7 @@
   </main>
 
   <footer class="footer">
-    <p>Built with ❤️ using <a href="https://rawg.io/apidocs" target="_blank">RAWG API</a> · GameVault © 2025</p>
+    <p>Built with ❤️ using <a href="https://rawg.io/apidocs" target="_blank">RAWG API</a> · GameMbrance © 2025</p>
   </footer>
 
   <script src="script.js"></script>
