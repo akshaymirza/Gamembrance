@@ -443,6 +443,12 @@ async function doSearch(query) {
 // ============================================================
 
 async function openDetailModal(gameId) {
+  // Custom game: show custom detail modal
+  if (isCustomGame(gameId)) {
+    openCustomDetailModal(gameId);
+    return;
+  }
+
   const overlay = document.getElementById('detail-modal');
   const inner   = document.getElementById('detail-inner');
 
@@ -554,6 +560,22 @@ function renderDetailModal(game) {
           </span>
         </div>
       </div>
+
+      <!-- COMMENTS SECTION -->
+      <div class="comments-section">
+        <div class="comments-header">
+          <span class="comments-title">💬 Komentar & Jurnal</span>
+          <span class="comments-count" id="comments-count"></span>
+        </div>
+        <div class="comment-form">
+          <textarea id="comment-input" placeholder="Tulis komentar, kesan, spoiler, atau jurnal bermain kamu..." rows="3" maxlength="1000"></textarea>
+          <div class="comment-form-footer">
+            <span class="comment-char-count" id="comment-char">0 / 1000</span>
+            <button class="btn-primary comment-submit-btn" id="comment-submit">Kirim 💬</button>
+          </div>
+        </div>
+        <div class="comments-list" id="comments-list"></div>
+      </div>
     </div>
   `;
 
@@ -640,6 +662,10 @@ function renderDetailModal(game) {
       refreshGridCards(game.id);
     });
   });
+
+  // Comments
+  renderComments(game.id);
+  setupCommentForm(game.id, getUsername() || 'Guest');
 }
 
 function refreshGridCards(gameId) {
@@ -730,11 +756,13 @@ function renderMyList(activeTab = 'playing') {
       ? `<img class="list-item-img" src="${game.cover}" alt="${escHtml(game.title)}" loading="lazy" />`
       : `<div class="list-item-img" style="display:flex;align-items:center;justify-content:center;font-size:1.5rem">🎮</div>`;
 
+    const customBadge = game.isCustom ? `<span style="font-size:0.72rem;background:var(--accent-glow);color:var(--accent);border:1px solid var(--border-accent);border-radius:99px;padding:0.15rem 0.55rem;margin-left:0.35rem;">✍️ Custom</span>` : '';
+
     item.innerHTML = `
       ${imgHtml}
       <div class="list-item-info">
-        <div class="list-item-title">${escHtml(game.title || 'Unknown Game')}</div>
-        <div class="list-item-meta">${escHtml(game.genres || '')} ${game.release ? '· ' + new Date(game.release).getFullYear() : ''}</div>
+        <div class="list-item-title">${escHtml(game.title || 'Unknown Game')}${customBadge}</div>
+        <div class="list-item-meta">${escHtml(game.genres || '')} ${game.release ? '· ' + new Date(game.release).getFullYear() : game.year ? '· ' + game.year : ''}</div>
       </div>
       <div class="list-item-actions">
         ${ratingHtml}
@@ -776,6 +804,574 @@ function updateNavUsername() {
     document.getElementById('username-display').textContent = 'Guest';
     document.getElementById('user-avatar-nav').textContent  = '?';
   }
+}
+
+// ============================================================
+//  CUSTOM GAMES — LOCAL STORAGE HELPERS
+// ============================================================
+
+const CUSTOM_PREFIX = 'custom_';
+
+function generateCustomId() {
+  return CUSTOM_PREFIX + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+}
+
+function isCustomGame(id) {
+  return String(id).startsWith(CUSTOM_PREFIX);
+}
+
+function getCustomGames() {
+  return JSON.parse(localStorage.getItem('gv_custom_games') || '{}');
+}
+
+function saveCustomGames(games) {
+  localStorage.setItem('gv_custom_games', JSON.stringify(games));
+}
+
+function saveCustomGame(id, data) {
+  const games = getCustomGames();
+  games[id] = { ...games[id], ...data, isCustom: true };
+  saveCustomGames(games);
+  // Also save to library
+  saveGameData(id, { ...games[id] });
+}
+
+function getCustomGame(id) {
+  return getCustomGames()[id] || null;
+}
+
+function deleteCustomGame(id) {
+  const games = getCustomGames();
+  delete games[id];
+  saveCustomGames(games);
+  removeGame(id);
+}
+
+// ============================================================
+//  CUSTOM GAME MODAL
+// ============================================================
+
+let cgRating = 0;
+let cgStatus = 'plantoplay';
+let cgEditingId = null; // null = new, string = editing existing
+
+function openCustomGameModal(editId = null) {
+  cgRating = 0;
+  cgStatus = 'plantoplay';
+  cgEditingId = editId;
+  cgCoverBase64 = '';
+
+  // Reset form
+  document.getElementById('cg-title').value = '';
+  document.getElementById('cg-genres').value = '';
+  document.getElementById('cg-year').value = '';
+  document.getElementById('cg-platform').value = '';
+  document.getElementById('cg-cover').value = '';
+  document.getElementById('cg-notes').value = '';
+  document.getElementById('cg-rating-display').textContent = '—';
+
+  // Reset cover preview
+  const preview = document.getElementById('cg-cover-preview');
+  if (preview) preview.innerHTML = `<span class="cover-preview-placeholder">🖼️<br><small>Preview</small></span>`;
+  const fileInput = document.getElementById('cg-cover-file');
+  if (fileInput) fileInput.value = '';
+
+  // Build stars
+  const starContainer = document.getElementById('cg-star-rating');
+  starContainer.innerHTML = Array.from({length: 10}, (_, i) =>
+    `<span class="star" data-value="${i+1}">★</span>`
+  ).join('');
+  setupCgStars();
+
+  // Reset status buttons
+  document.querySelectorAll('.cg-status-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.status === 'plantoplay');
+  });
+
+  // If editing, populate
+  if (editId) {
+    const game = getCustomGame(editId);
+    if (game) {
+      document.getElementById('cg-title').value = game.title || '';
+      document.getElementById('cg-genres').value = game.genres || '';
+      document.getElementById('cg-year').value = game.year || '';
+      document.getElementById('cg-platform').value = game.platform || '';
+      document.getElementById('cg-notes').value = game.notes || '';
+      cgRating = game.rating || 0;
+      cgStatus = game.status || 'plantoplay';
+      document.getElementById('cg-rating-display').textContent = cgRating ? `${cgRating}/10` : '—';
+      document.querySelectorAll('#cg-star-rating .star').forEach((s, i) => s.classList.toggle('lit', i < cgRating));
+      document.querySelectorAll('.cg-status-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.status === cgStatus);
+      });
+      // Restore cover
+      if (game.cover) {
+        const isBase64 = game.cover.startsWith('data:');
+        if (isBase64) {
+          cgCoverBase64 = game.cover;
+        } else {
+          document.getElementById('cg-cover').value = game.cover;
+        }
+        if (preview) preview.innerHTML = `<img src="${game.cover}" style="width:100%;height:100%;object-fit:cover;border-radius:var(--radius-sm);" />`;
+      }
+    }
+  }
+
+  setupCoverUpload();
+  document.getElementById('custom-game-modal').style.display = 'flex';
+  document.getElementById('cg-title').focus();
+}
+
+function closeCustomGameModal() {
+  document.getElementById('custom-game-modal').style.display = 'none';
+  cgEditingId = null;
+}
+
+function setupCgStars() {
+  const stars = document.querySelectorAll('#cg-star-rating .star');
+  const display = document.getElementById('cg-rating-display');
+
+  stars.forEach(star => {
+    const val = parseInt(star.dataset.value);
+    star.addEventListener('mouseenter', () => {
+      stars.forEach((s, i) => s.classList.toggle('lit', i < val));
+    });
+    star.addEventListener('mouseleave', () => {
+      stars.forEach((s, i) => s.classList.toggle('lit', i < cgRating));
+    });
+    star.addEventListener('click', () => {
+      cgRating = val;
+      display.textContent = `${val}/10`;
+      stars.forEach((s, i) => s.classList.toggle('lit', i < val));
+    });
+  });
+}
+
+function saveCustomGameFromForm() {
+  const title = document.getElementById('cg-title').value.trim();
+  if (!title) {
+    showToast('Nama game harus diisi!', 'error');
+    document.getElementById('cg-title').focus();
+    return;
+  }
+
+  const id = cgEditingId || generateCustomId();
+  const coverValue = cgCoverBase64 || document.getElementById('cg-cover').value.trim();
+  const data = {
+    title,
+    genres: document.getElementById('cg-genres').value.trim(),
+    year: document.getElementById('cg-year').value.trim(),
+    platform: document.getElementById('cg-platform').value.trim(),
+    cover: coverValue,
+    notes: document.getElementById('cg-notes').value.trim(),
+    rating: cgRating,
+    status: cgStatus,
+    isCustom: true,
+    addedAt: cgEditingId ? (getCustomGame(cgEditingId)?.addedAt || Date.now()) : Date.now(),
+  };
+
+  saveCustomGame(id, data);
+  closeCustomGameModal();
+  showToast(`"${title}" berhasil disimpan! 🎮`, 'success');
+
+  // Refresh My Memory if open
+  if (currentView === 'mylist') {
+    const activeTab = document.querySelector('.list-tab.active')?.dataset.tab || 'playing';
+    renderMyList(activeTab);
+  }
+}
+
+// ============================================================
+//  CUSTOM GAME DETAIL MODAL
+// ============================================================
+
+function openCustomDetailModal(id) {
+  const game = getCustomGame(id);
+  if (!game) return;
+
+  const overlay = document.getElementById('detail-modal');
+  const inner   = document.getElementById('detail-inner');
+  overlay.style.display = 'flex';
+
+  const saved = getGameData(id);
+  const curRating = saved?.rating || game.rating || 0;
+  const curStatus = saved?.status || game.status || '';
+
+  const coverHtml = game.cover
+    ? `<img src="${game.cover}" alt="${escHtml(game.title)}" onerror="this.parentElement.innerHTML='<div style=\\'height:100%;display:flex;align-items:center;justify-content:center;font-size:4rem;background:var(--bg-surface)\\'>🎮</div>'" />`
+    : `<div style="height:100%;display:flex;align-items:center;justify-content:center;font-size:4rem;background:var(--bg-surface)">🎮</div>`;
+
+  const statuses = [
+    { key: 'playing',    label: '🎮 Playing',      cls: 'active-playing' },
+    { key: 'played',     label: '✅ Played',        cls: 'active-played' },
+    { key: 'plantoplay', label: '📋 Plan to Play',  cls: 'active-plantoplay' },
+  ];
+
+  const statusBtns = statuses.map(s => `
+    <button class="list-btn ${curStatus === s.key ? s.cls : ''}" data-status="${s.key}">
+      ${s.label}
+    </button>
+  `).join('');
+
+  const starsHtml = Array.from({length: 10}, (_, i) =>
+    `<span class="star ${i < curRating ? 'lit' : ''}" data-value="${i+1}">★</span>`
+  ).join('');
+
+  inner.innerHTML = `
+    <div class="detail-hero">
+      ${coverHtml}
+      <div class="detail-hero-overlay"></div>
+      <div class="custom-badge-detail">✍️ Custom Game</div>
+    </div>
+    <div class="detail-body">
+      <div class="detail-title">${escHtml(game.title)}</div>
+
+      <div class="detail-tags">
+        ${game.genres ? game.genres.split(',').map(g => `<span class="detail-tag">${escHtml(g.trim())}</span>`).join('') : ''}
+        <span class="detail-tag custom-tag">Custom</span>
+      </div>
+
+      <div class="detail-stats">
+        <div class="stat-card">
+          <div class="stat-label">Tahun Rilis</div>
+          <div class="stat-value">${escHtml(game.year || 'N/A')}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Platform</div>
+          <div class="stat-value" style="font-size:0.8rem;color:var(--text-secondary)">${escHtml(game.platform || 'N/A')}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Ditambahkan</div>
+          <div class="stat-value" style="font-size:0.8rem;color:var(--text-secondary)">${game.addedAt ? new Date(game.addedAt).toLocaleDateString('id-ID', {day:'numeric',month:'short',year:'numeric'}) : 'N/A'}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Rating Kamu</div>
+          <div class="stat-value" style="color:var(--gold)">${curRating ? `★ ${curRating}/10` : '—'}</div>
+        </div>
+      </div>
+
+      ${game.notes ? `
+        <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-md);padding:1rem 1.25rem;margin-bottom:1.5rem;">
+          <div style="font-size:0.68rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.5rem;">📝 Catatan Pribadi</div>
+          <div style="color:var(--text-secondary);font-size:0.9rem;line-height:1.7;">${escHtml(game.notes)}</div>
+        </div>
+      ` : ''}
+
+      <div class="detail-actions">
+        <div>
+          <div class="rating-label" style="margin-bottom:0.5rem">Status:</div>
+          <div class="list-btn-group" id="status-btn-group">
+            ${statusBtns}
+            ${curStatus ? `<button class="btn-danger" id="btn-remove-list">Remove</button>` : ''}
+          </div>
+        </div>
+        <div class="rating-section">
+          <span class="rating-label">Your Rating:</span>
+          <div class="star-rating" id="star-rating-container">${starsHtml}</div>
+          <span class="rating-score-display" id="rating-score-display">${curRating ? `${curRating}/10` : '—'}</span>
+        </div>
+      </div>
+
+      <div style="margin-top:1.5rem;display:flex;gap:.75rem;flex-wrap:wrap;border-top:1px solid var(--border);padding-top:1.25rem;">
+        <button class="btn-outline" id="btn-edit-custom" style="font-size:0.85rem;">✏️ Edit Game</button>
+        <button class="btn-danger" id="btn-delete-custom" style="font-size:0.85rem;">🗑️ Hapus Game</button>
+      </div>
+
+      <!-- COMMENTS SECTION -->
+      <div class="comments-section">
+        <div class="comments-header">
+          <span class="comments-title">💬 Komentar & Jurnal</span>
+          <span class="comments-count" id="comments-count"></span>
+        </div>
+        <div class="comment-form">
+          <textarea id="comment-input" placeholder="Tulis komentar, kesan, spoiler, atau jurnal bermain kamu..." rows="3" maxlength="1000"></textarea>
+          <div class="comment-form-footer">
+            <span class="comment-char-count" id="comment-char">0 / 1000</span>
+            <button class="btn-primary comment-submit-btn" id="comment-submit">Kirim 💬</button>
+          </div>
+        </div>
+        <div class="comments-list" id="comments-list"></div>
+      </div>
+    </div>
+  `;
+
+  // Status buttons
+  const basicInfo = { title: game.title, cover: game.cover || '', genres: game.genres || '', status: curStatus, isCustom: true };
+  document.querySelectorAll('#status-btn-group .list-btn[data-status]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const status = btn.dataset.status;
+      saveGameData(id, { ...basicInfo, status });
+      saveCustomGame(id, { status });
+      showToast(`Status diubah!`, 'success');
+      document.querySelectorAll('#status-btn-group .list-btn[data-status]').forEach(b => {
+        b.className = 'list-btn';
+        if (b.dataset.status === status) b.classList.add(`active-${status}`);
+      });
+      let rb = document.getElementById('btn-remove-list');
+      if (!rb) {
+        rb = document.createElement('button');
+        rb.className = 'btn-danger'; rb.id = 'btn-remove-list'; rb.textContent = 'Remove';
+        document.getElementById('status-btn-group').appendChild(rb);
+        rb.addEventListener('click', () => { removeGame(id); saveCustomGame(id, { status: '' }); showToast('Dihapus dari memory', 'info'); document.querySelectorAll('#status-btn-group .list-btn[data-status]').forEach(b => b.className = 'list-btn'); rb.remove(); });
+      }
+    });
+  });
+
+  const removeBtn = document.getElementById('btn-remove-list');
+  if (removeBtn) {
+    removeBtn.addEventListener('click', () => {
+      removeGame(id);
+      saveCustomGame(id, { status: '' });
+      showToast('Dihapus dari memory', 'info');
+      document.querySelectorAll('#status-btn-group .list-btn[data-status]').forEach(b => b.className = 'list-btn');
+      removeBtn.remove();
+    });
+  }
+
+  // Stars
+  const stars = document.querySelectorAll('#star-rating-container .star');
+  const scoreDisplay = document.getElementById('rating-score-display');
+  let savedRating = curRating;
+  stars.forEach(star => {
+    const val = parseInt(star.dataset.value);
+    star.addEventListener('mouseenter', () => stars.forEach((s, i) => s.classList.toggle('lit', i < val)));
+    star.addEventListener('mouseleave', () => stars.forEach((s, i) => s.classList.toggle('lit', i < savedRating)));
+    star.addEventListener('click', () => {
+      savedRating = val;
+      saveGameData(id, { rating: val });
+      saveCustomGame(id, { rating: val });
+      scoreDisplay.textContent = `${val}/10`;
+      stars.forEach((s, i) => s.classList.toggle('lit', i < val));
+      showToast(`Rated ${val}/10 ⭐`, 'success');
+    });
+  });
+
+  // Edit button
+  document.getElementById('btn-edit-custom').addEventListener('click', () => {
+    document.getElementById('detail-modal').style.display = 'none';
+    openCustomGameModal(id);
+  });
+
+  // Delete button
+  document.getElementById('btn-delete-custom').addEventListener('click', () => {
+    if (confirm(`Yakin hapus "${game.title}" dari koleksi kamu?`)) {
+      deleteCustomGame(id);
+      document.getElementById('detail-modal').style.display = 'none';
+      showToast(`"${game.title}" dihapus.`, 'info');
+      if (currentView === 'mylist') {
+        const activeTab = document.querySelector('.list-tab.active')?.dataset.tab || 'playing';
+        renderMyList(activeTab);
+      }
+    }
+  });
+
+  // Comments
+  renderComments(id);
+  setupCommentForm(id, getUsername() || 'Guest');
+}
+
+// ============================================================
+//  COMMENTS SYSTEM
+// ============================================================
+
+function getComments(gameId) {
+  const key = `gv_comments_${gameId}`;
+  return JSON.parse(localStorage.getItem(key) || '[]');
+}
+
+function saveComments(gameId, comments) {
+  localStorage.setItem(`gv_comments_${gameId}`, JSON.stringify(comments));
+}
+
+function addComment(gameId, author, text) {
+  const comments = getComments(gameId);
+  const comment = {
+    id: Date.now() + '_' + Math.random().toString(36).slice(2, 5),
+    author,
+    text,
+    timestamp: Date.now(),
+    edited: false,
+  };
+  comments.unshift(comment);
+  saveComments(gameId, comments);
+  return comment;
+}
+
+function deleteComment(gameId, commentId) {
+  const comments = getComments(gameId).filter(c => c.id !== commentId);
+  saveComments(gameId, comments);
+}
+
+function editComment(gameId, commentId, newText) {
+  const comments = getComments(gameId);
+  const c = comments.find(c => c.id === commentId);
+  if (c) { c.text = newText; c.edited = true; c.editedAt = Date.now(); }
+  saveComments(gameId, comments);
+}
+
+function formatCommentTime(ts) {
+  const d = new Date(ts);
+  const now = Date.now();
+  const diff = now - ts;
+  if (diff < 60000) return 'Baru saja';
+  if (diff < 3600000) return `${Math.floor(diff / 60000)} menit lalu`;
+  if (diff < 86400000) return `${Math.floor(diff / 3600000)} jam lalu`;
+  return d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function renderComments(gameId) {
+  const comments = getComments(gameId);
+  const list     = document.getElementById('comments-list');
+  const countEl  = document.getElementById('comments-count');
+  if (!list) return;
+
+  if (countEl) countEl.textContent = comments.length ? `${comments.length} komentar` : '';
+
+  if (comments.length === 0) {
+    list.innerHTML = `<div class="comments-empty">Belum ada komentar. Jadilah yang pertama! 🎮</div>`;
+    return;
+  }
+
+  const me = getUsername() || 'Guest';
+  list.innerHTML = '';
+
+  comments.forEach(c => {
+    const isMe = c.author === me;
+    const item = document.createElement('div');
+    item.className = `comment-item ${isMe ? 'comment-mine' : ''}`;
+    item.dataset.cid = c.id;
+
+    item.innerHTML = `
+      <div class="comment-avatar">${c.author.charAt(0).toUpperCase()}</div>
+      <div class="comment-body">
+        <div class="comment-meta">
+          <span class="comment-author">${escHtml(c.author)}</span>
+          <span class="comment-time" title="${new Date(c.timestamp).toLocaleString('id-ID')}">${formatCommentTime(c.timestamp)}${c.edited ? ' <span class="comment-edited">(diedit)</span>' : ''}</span>
+          ${isMe ? `
+            <div class="comment-actions">
+              <button class="comment-action-btn" data-edit="${c.id}">✏️</button>
+              <button class="comment-action-btn comment-del-btn" data-delete="${c.id}">🗑️</button>
+            </div>
+          ` : ''}
+        </div>
+        <div class="comment-text" id="ctext-${c.id}">${escHtml(c.text)}</div>
+        <div class="comment-edit-form" id="cedit-${c.id}" style="display:none;">
+          <textarea class="comment-edit-input">${escHtml(c.text)}</textarea>
+          <div class="comment-edit-actions">
+            <button class="btn-outline" style="font-size:0.78rem;padding:0.3rem 0.7rem;" data-cancel-edit="${c.id}">Batal</button>
+            <button class="btn-primary" style="font-size:0.78rem;padding:0.3rem 0.7rem;" data-save-edit="${c.id}">Simpan</button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    // Edit button
+    item.querySelector(`[data-edit="${c.id}"]`)?.addEventListener('click', () => {
+      document.getElementById(`ctext-${c.id}`).style.display = 'none';
+      document.getElementById(`cedit-${c.id}`).style.display = 'block';
+      item.querySelector(`[data-cancel-edit="${c.id}"]`).addEventListener('click', () => {
+        document.getElementById(`ctext-${c.id}`).style.display = 'block';
+        document.getElementById(`cedit-${c.id}`).style.display = 'none';
+      });
+      item.querySelector(`[data-save-edit="${c.id}"]`).addEventListener('click', () => {
+        const newText = item.querySelector('.comment-edit-input').value.trim();
+        if (!newText) return;
+        editComment(gameId, c.id, newText);
+        renderComments(gameId);
+        showToast('Komentar diperbarui', 'success');
+      });
+    });
+
+    // Delete button
+    item.querySelector(`[data-delete="${c.id}"]`)?.addEventListener('click', () => {
+      if (confirm('Hapus komentar ini?')) {
+        deleteComment(gameId, c.id);
+        renderComments(gameId);
+        showToast('Komentar dihapus', 'info');
+      }
+    });
+
+    list.appendChild(item);
+  });
+}
+
+function setupCommentForm(gameId, author) {
+  const input     = document.getElementById('comment-input');
+  const submitBtn = document.getElementById('comment-submit');
+  const charEl    = document.getElementById('comment-char');
+  if (!input || !submitBtn) return;
+
+  input.addEventListener('input', () => {
+    if (charEl) charEl.textContent = `${input.value.length} / 1000`;
+  });
+
+  submitBtn.addEventListener('click', () => {
+    const text = input.value.trim();
+    if (!text) { showToast('Tulis komentar dulu!', 'error'); return; }
+    addComment(gameId, author, text);
+    input.value = '';
+    if (charEl) charEl.textContent = '0 / 1000';
+    renderComments(gameId);
+    showToast('Komentar ditambahkan! 💬', 'success');
+  });
+
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) submitBtn.click();
+  });
+}
+
+// ============================================================
+//  IMAGE UPLOAD (base64)
+// ============================================================
+
+let cgCoverBase64 = ''; // holds uploaded image data
+
+function setupCoverUpload() {
+  const fileInput = document.getElementById('cg-cover-file');
+  const urlInput  = document.getElementById('cg-cover');
+  const preview   = document.getElementById('cg-cover-preview');
+  if (!fileInput) return;
+
+  function setPreview(src) {
+    if (src) {
+      preview.innerHTML = `<img src="${src}" alt="Cover preview" style="width:100%;height:100%;object-fit:cover;border-radius:var(--radius-sm);" />`;
+    } else {
+      preview.innerHTML = `<span class="cover-preview-placeholder">🖼️<br><small>Preview</small></span>`;
+    }
+  }
+
+  // File upload → base64
+  fileInput.addEventListener('change', () => {
+    const file = fileInput.files[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      showToast('Ukuran gambar maksimal 2MB!', 'error');
+      fileInput.value = '';
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = e => {
+      cgCoverBase64 = e.target.result;
+      urlInput.value = '';
+      setPreview(cgCoverBase64);
+    };
+    reader.readAsDataURL(file);
+  });
+
+  // URL input → preview
+  urlInput.addEventListener('input', () => {
+    cgCoverBase64 = '';
+    fileInput.value = '';
+    const url = urlInput.value.trim();
+    if (url) {
+      const img = new Image();
+      img.onload  = () => setPreview(url);
+      img.onerror = () => setPreview('');
+      img.src = url;
+    } else {
+      setPreview('');
+    }
+  });
 }
 
 // ============================================================
@@ -901,11 +1497,41 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+  // Custom Game Modal triggers
+  document.getElementById('nav-add-custom').addEventListener('click', () => openCustomGameModal());
+  document.getElementById('mylist-add-custom')?.addEventListener('click', () => openCustomGameModal());
+  document.getElementById('search-add-custom')?.addEventListener('click', () => openCustomGameModal());
+  document.getElementById('custom-game-close').addEventListener('click', closeCustomGameModal);
+  document.getElementById('custom-game-cancel').addEventListener('click', closeCustomGameModal);
+  document.getElementById('custom-game-modal').addEventListener('click', e => {
+    if (e.target === document.getElementById('custom-game-modal')) closeCustomGameModal();
+  });
+
+  // Custom game status buttons
+  document.getElementById('cg-status-group').addEventListener('click', e => {
+    const btn = e.target.closest('.cg-status-btn');
+    if (!btn) return;
+    cgStatus = btn.dataset.status;
+    document.querySelectorAll('.cg-status-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  });
+
+  // Save custom game
+  document.getElementById('custom-game-save').addEventListener('click', saveCustomGameFromForm);
+
+  // Cover upload — init on first modal open (handled inside openCustomGameModal)
+
+  // Enter in title field saves
+  document.getElementById('cg-title').addEventListener('keydown', e => {
+    if (e.key === 'Enter') saveCustomGameFromForm();
+  });
+
   // Escape closes modals
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') {
       document.getElementById('detail-modal').style.display = 'none';
       document.getElementById('username-modal').style.display = 'none';
+      closeCustomGameModal();
     }
   });
 

@@ -29,6 +29,7 @@
       <div class="nav-actions">
         <button class="nav-link" id="nav-home">Home</button>
         <button class="nav-link" id="nav-mylist">My Memory</button>
+        <button class="nav-link nav-add-custom" id="nav-add-custom" title="Add Custom Game">＋ Add Game</button>
         <div class="user-chip" id="user-chip">
           <span class="user-avatar" id="user-avatar-nav">?</span>
           <span id="username-display">Guest</span>
@@ -47,6 +48,72 @@
       <p>Enter a username to start tracking your games</p>
       <input type="text" id="username-input" placeholder="Your username..." maxlength="20" />
       <button id="username-save-btn" class="btn-primary">Let's Go</button>
+    </div>
+  </div>
+
+  <!-- ===== MODAL: ADD CUSTOM GAME ===== -->
+  <div class="modal-overlay" id="custom-game-modal" style="display:none;">
+    <div class="modal-box custom-game-box">
+      <button class="modal-close" id="custom-game-close">✕</button>
+      <h2>✍️ Add <span class="accent">Custom Game</span></h2>
+      <p class="modal-sub">Game tidak ada di database? Tambahkan sendiri!</p>
+      <div class="custom-game-form">
+        <div class="form-group">
+          <label>Nama Game <span class="required">*</span></label>
+          <input type="text" id="cg-title" placeholder="Contoh: My Indie Game" maxlength="100" />
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Genre</label>
+            <input type="text" id="cg-genres" placeholder="Action, RPG, dll." maxlength="60" />
+          </div>
+          <div class="form-group">
+            <label>Tahun Rilis</label>
+            <input type="number" id="cg-year" placeholder="2024" min="1970" max="2030" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Platform</label>
+          <input type="text" id="cg-platform" placeholder="PC, PS5, Mobile, dll." maxlength="60" />
+        </div>
+        <div class="form-group">
+          <label>Cover / Gambar</label>
+          <div class="cover-input-wrap">
+            <div class="cover-preview" id="cg-cover-preview">
+              <span class="cover-preview-placeholder">🖼️<br><small>Preview</small></span>
+            </div>
+            <div class="cover-input-options">
+              <label class="upload-btn" for="cg-cover-file">📁 Upload dari komputer</label>
+              <input type="file" id="cg-cover-file" accept="image/*" style="display:none" />
+              <div class="cover-or">— atau —</div>
+              <input type="url" id="cg-cover" placeholder="Paste URL gambar (https://...)" />
+            </div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Catatan Pribadi</label>
+          <textarea id="cg-notes" placeholder="Tulis kesan, cerita, atau notes tentang game ini..." rows="3" maxlength="500"></textarea>
+        </div>
+        <div class="form-group">
+          <label>Status</label>
+          <div class="cg-status-group" id="cg-status-group">
+            <button class="cg-status-btn" data-status="playing">🎮 Playing</button>
+            <button class="cg-status-btn" data-status="played">✅ Played</button>
+            <button class="cg-status-btn active" data-status="plantoplay">📋 Plan to Play</button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Rating Kamu</label>
+          <div class="cg-star-row">
+            <div class="star-rating" id="cg-star-rating"></div>
+            <span class="rating-score-display" id="cg-rating-display">—</span>
+          </div>
+        </div>
+        <div class="cg-actions">
+          <button class="btn-outline" id="custom-game-cancel">Batal</button>
+          <button class="btn-primary" id="custom-game-save">💾 Simpan Game</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -175,6 +242,7 @@
       <div id="search-empty" style="display:none;" class="empty-state">
         <span class="empty-icon">🎮</span>
         <p>No games found. Try a different search term.</p>
+        <button class="btn-primary" id="search-add-custom">＋ Add Game Sendiri</button>
       </div>
     </section>
 
@@ -185,7 +253,10 @@
           <h2 class="section-title">My Game Memory</h2>
           <p class="hero-sub" id="mylist-username-label">Loading...</p>
         </div>
-        <div class="mylist-stats" id="mylist-stats"></div>
+        <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
+          <button class="btn-primary" id="mylist-add-custom" style="font-size:0.85rem;">＋ Add Custom Game</button>
+          <div class="mylist-stats" id="mylist-stats"></div>
+        </div>
       </div>
 
       <div class="list-tabs">
