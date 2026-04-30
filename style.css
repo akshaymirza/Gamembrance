@@ -1522,3 +1522,273 @@ body {
   .games-grid { grid-template-columns: repeat(2, 1fr); }
   .updated-card { width: 135px; }
 }
+
+/* ============================================================
+   EXPORT / IMPORT (Backup Modal)
+   ============================================================ */
+
+.backup-box {
+  max-width: 520px;
+  width: 90%;
+}
+
+.backup-section {
+  margin-top: 1.2rem;
+}
+
+.backup-section-title {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  color: var(--accent);
+  margin-bottom: 0.45rem;
+  letter-spacing: 0.04em;
+}
+
+.backup-desc {
+  font-size: 0.87rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.9rem;
+  line-height: 1.5;
+}
+
+.backup-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 1.4rem 0;
+}
+
+.import-drop-zone {
+  border: 2px dashed var(--border-accent);
+  border-radius: var(--radius-md);
+  padding: 1.4rem 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+  text-align: center;
+}
+
+.import-drop-zone.drag-over {
+  background: var(--accent-glow);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.import-drop-icon {
+  font-size: 1.8rem;
+  margin-bottom: 0.2rem;
+}
+
+.import-preview {
+  margin-top: 1rem;
+  border: 1px solid var(--border-accent);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--bg-surface);
+}
+
+.import-preview-inner {
+  padding: 1rem 1.2rem;
+}
+
+.import-preview-title {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 0.75rem;
+}
+
+.import-stats {
+  display: flex;
+  gap: 1.2rem;
+  margin-bottom: 0.7rem;
+}
+
+.import-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.import-stat-num {
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.import-meta {
+  display: flex;
+  gap: 1rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: 0.4rem;
+}
+
+.import-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+  margin-top: 0.9rem;
+}
+
+/* ============================================================
+   CUSTOM GAME FORM — VALIDATION
+   ============================================================ */
+
+.cg-field-error {
+  border-color: var(--accent2) !important;
+  box-shadow: 0 0 0 2px rgba(255, 61, 107, 0.25) !important;
+  animation: shake-field 0.3s ease;
+}
+
+.cg-error-msg {
+  display: block;
+  margin-top: 0.3rem;
+  font-size: 0.78rem;
+  color: var(--accent2);
+}
+
+@keyframes shake-field {
+  0%, 100% { transform: translateX(0); }
+  25%       { transform: translateX(-4px); }
+  75%       { transform: translateX(4px); }
+}
+
+.btn-shake {
+  animation: btn-shake 0.4s ease;
+}
+
+@keyframes btn-shake {
+  0%, 100% { transform: scale(1); }
+  20%       { transform: scale(0.96) translateX(-4px); }
+  50%       { transform: scale(0.96) translateX(4px); }
+  80%       { transform: scale(0.96) translateX(-3px); }
+}
+
+/* Clear error state on valid input */
+input.cg-field-error:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-glow);
+}
+
+/* Age rating display in custom game list item */
+.list-item-age-rating {
+  font-size: 0.75rem;
+  background: rgba(255,209,102,0.12);
+  color: var(--gold);
+  border: 1px solid rgba(255,209,102,0.25);
+  border-radius: 99px;
+  padding: 0.12rem 0.5rem;
+  margin-left: 0.5rem;
+  white-space: nowrap;
+}
+
+/* Nav backup button */
+.nav-export {
+  background: rgba(0,229,255,0.08);
+  color: var(--accent);
+  border: 1px solid var(--border-accent);
+  border-radius: var(--radius-sm);
+  font-size: 0.82rem;
+  padding: 0.35rem 0.8rem;
+}
+
+.nav-export:hover {
+  background: var(--accent-glow);
+}
+
+
+/* ============================================================
+   SEARCH VIEW — FILTERS & NSFW BANNER
+   ============================================================ */
+
+#search-view .section-header {
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+#search-view .filters {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+}
+
+.nsfw-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: rgba(255, 61, 107, 0.1);
+  border: 1px solid rgba(255, 61, 107, 0.35);
+  border-radius: var(--radius-md);
+  color: #ff8fa8;
+  font-size: 0.87rem;
+  padding: 0.65rem 1rem;
+  margin-bottom: 1.2rem;
+  line-height: 1.4;
+  animation: fadeInDown 0.3s ease;
+}
+
+@keyframes fadeInDown {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Highlight Adults Only option in red when selected */
+#search-age-filter option[value="5"],
+#age-rating-filter option[value="5"] {
+  color: #ff3d6b;
+}
+
+
+/* ============================================================
+   ESRB / AGE RATING BADGE
+   ============================================================ */
+
+.esrb-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.6rem 0.2rem 0.35rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid;
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.esrb-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.4rem;
+  height: 1.4rem;
+  border-radius: 3px;
+  background: currentColor;
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 800;
+  filter: brightness(0) invert(1);
+  opacity: 0.9;
+  flex-shrink: 0;
+  mix-blend-mode: normal;
+}
+
+/* Fix icon color so it shows on the colored background */
+.esrb-badge .esrb-icon {
+  background: currentColor;
+  color: inherit;
+  filter: none;
+  opacity: 1;
+  background: rgba(255,255,255,0.2);
+}
+

@@ -30,6 +30,7 @@
         <button class="nav-link" id="nav-home">Home</button>
         <button class="nav-link" id="nav-mylist">My Memory</button>
         <button class="nav-link nav-add-custom" id="nav-add-custom" title="Add Custom Game">＋ Add Game</button>
+        <button class="nav-link nav-export" id="nav-export" title="Export / Import data">💾 Backup</button>
         <div class="user-chip" id="user-chip">
           <span class="user-avatar" id="user-avatar-nav">?</span>
           <span id="username-display">Guest</span>
@@ -48,6 +49,39 @@
       <p>Enter a username to start tracking your games</p>
       <input type="text" id="username-input" placeholder="Your username..." maxlength="20" />
       <button id="username-save-btn" class="btn-primary">Let's Go</button>
+    </div>
+  </div>
+
+  <!-- ===== MODAL: EXPORT / IMPORT ===== -->
+  <div class="modal-overlay" id="backup-modal" style="display:none;">
+    <div class="modal-box backup-box">
+      <button class="modal-close" id="backup-close">✕</button>
+      <h2>💾 <span class="accent">Backup & Restore</span></h2>
+      <p class="modal-sub">Export semua data (library, komentar, rating) ke file JSON, atau restore dari backup.</p>
+
+      <div class="backup-section">
+        <h3 class="backup-section-title">📤 Export Data</h3>
+        <p class="backup-desc">Download semua data kamu ke file <code>.json</code> yang bisa disimpan sebagai backup.</p>
+        <button class="btn-primary" id="export-btn">⬇️ Download Backup JSON</button>
+      </div>
+
+      <div class="backup-divider"></div>
+
+      <div class="backup-section">
+        <h3 class="backup-section-title">📥 Import Data</h3>
+        <p class="backup-desc">Restore dari file backup. <strong style="color:var(--accent2)">⚠️ Data saat ini akan digabung / ditimpa.</strong></p>
+        <div class="import-drop-zone" id="import-drop-zone">
+          <span class="import-drop-icon">📂</span>
+          <span>Drop file JSON di sini, atau</span>
+          <label class="upload-btn" for="import-file-input">Pilih File</label>
+          <input type="file" id="import-file-input" accept=".json,application/json" style="display:none" />
+        </div>
+        <div id="import-preview" class="import-preview" style="display:none;"></div>
+        <div id="import-actions" class="import-actions" style="display:none;">
+          <button class="btn-outline" id="import-cancel-btn">Batal</button>
+          <button class="btn-primary" id="import-confirm-btn">✅ Konfirmasi Import</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -73,8 +107,19 @@
           </div>
         </div>
         <div class="form-group">
-          <label>Platform</label>
+          <label>Platform <span class="required">*</span></label>
           <input type="text" id="cg-platform" placeholder="PC, PS5, Mobile, dll." maxlength="60" />
+        </div>
+        <div class="form-group">
+          <label>Age Rating</label>
+          <select id="cg-age-rating" class="sort-select" style="width:100%;">
+            <option value="">Tidak Diketahui</option>
+            <option value="Everyone">Everyone (E) — Semua Umur</option>
+            <option value="Everyone 10+">Everyone 10+ (E10+)</option>
+            <option value="Teen">Teen (T) — 13+</option>
+            <option value="Mature">Mature (M) — 17+</option>
+            <option value="Adults Only">Adults Only (AO) — 18+</option>
+          </select>
         </div>
         <div class="form-group">
           <label>Cover / Gambar</label>
@@ -215,6 +260,14 @@
             <option value="-name">Z → A</option>
             <option value="-released">Newest</option>
           </select>
+          <select id="age-rating-filter" class="sort-select" title="Filter by age rating">
+            <option value="">All Ages</option>
+            <option value="1">Everyone (3+)</option>
+            <option value="2">Everyone 10+</option>
+            <option value="3">Teen (13+)</option>
+            <option value="4">Mature (17+)</option>
+            <option value="5">Adults Only (18+)</option>
+          </select>
         </div>
       </div>
 
@@ -233,6 +286,27 @@
     <section id="search-view" class="view">
       <div class="section-header">
         <h2 class="section-title">Search Results: <span id="search-query-label" class="accent"></span></h2>
+        <div class="filters">
+          <select id="search-sort-select" class="sort-select">
+            <option value="-rating">Top Rated</option>
+            <option value="-added">Most Popular</option>
+            <option value="name">A → Z</option>
+            <option value="-name">Z → A</option>
+            <option value="-released">Newest</option>
+          </select>
+          <select id="search-age-filter" class="sort-select" title="Filter by age rating">
+            <option value="">All Ages</option>
+            <option value="1">Everyone (3+)</option>
+            <option value="2">Everyone 10+</option>
+            <option value="3">Teen (13+)</option>
+            <option value="4">Mature (17+)</option>
+            <option value="5">Adults Only (18+) 🔞</option>
+          </select>
+        </div>
+      </div>
+      <!-- NSFW warning banner (hidden by default) -->
+      <div id="search-nsfw-banner" class="nsfw-banner" style="display:none;">
+        🔞 <strong>Adults Only filter aktif.</strong> Konten yang ditampilkan mungkin mengandung materi dewasa. Pastikan kamu berusia 18+.
       </div>
       <div class="games-grid" id="search-grid"></div>
       <div id="search-loading" class="loading-wrap" style="display:none;">

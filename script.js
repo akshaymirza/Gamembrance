@@ -13,13 +13,14 @@ const BASE_URL = 'https://api.rawg.io/api';
 // ============================================================
 //  STATE
 // ============================================================
-let currentView     = 'home';
-let currentPage     = 1;
-let currentGenre    = '';
-let currentOrdering = '-rating';
-let hasNextPage     = false;
-let isLoading       = false;
-let searchDebounce  = null;
+let currentView      = 'home';
+let currentPage      = 1;
+let currentGenre     = '';
+let currentOrdering  = '-rating';
+let currentAgeRating = '';   // RAWG esrb_rating id
+let hasNextPage      = false;
+let isLoading        = false;
+let searchDebounce   = null;
 
 // ============================================================
 //  LOCAL STORAGE HELPERS
@@ -92,7 +93,7 @@ function getYear() {
 //  RAWG API CALLS
 // ============================================================
 
-async function fetchGames(page = 1, genre = '', ordering = '-rating') {
+async function fetchGames(page = 1, genre = '', ordering = '-rating', ageRating = '') {
   const params = new URLSearchParams({
     key: API_KEY,
     page_size: 20,
@@ -100,18 +101,23 @@ async function fetchGames(page = 1, genre = '', ordering = '-rating') {
     ordering,
   });
   if (genre) params.set('genres', genre);
+  if (ageRating) params.set('esrb_rating', ageRating);
 
   const res = await fetch(`${BASE_URL}/games?${params}`);
   if (!res.ok) throw new Error(`API error: ${res.status}`);
   return res.json();
 }
 
-async function searchGames(query) {
+async function searchGames(query, ordering = '-rating', ageRating = '') {
   const params = new URLSearchParams({
     key: API_KEY,
     search: query,
     page_size: 24,
+    ordering,
   });
+  if (ageRating) params.set('esrb_rating', ageRating);
+  // Only show Adults Only content when explicitly selected; otherwise exclude it
+  if (!ageRating) params.set('exclude_additions', 'true');
   const res = await fetch(`${BASE_URL}/games?${params}`);
   if (!res.ok) throw new Error(`API error: ${res.status}`);
   return res.json();
@@ -381,7 +387,7 @@ async function loadGames(reset = false) {
   loadMoreWrap.style.display = 'none';
 
   try {
-    const data = await fetchGames(currentPage, currentGenre, currentOrdering);
+    const data = await fetchGames(currentPage, currentGenre, currentOrdering, currentAgeRating);
     const grid = document.getElementById('games-grid');
 
     (data.results || []).forEach((game, i) => {
@@ -409,22 +415,36 @@ async function loadGames(reset = false) {
 async function doSearch(query) {
   if (!query.trim()) return;
 
+  const ordering  = document.getElementById('search-sort-select')?.value || '-rating';
+  const ageRating = document.getElementById('search-age-filter')?.value || '';
+  const isAdult   = ageRating === '5';
+
   showView('search-view');
   document.getElementById('search-query-label').textContent = `"${query}"`;
   document.getElementById('search-grid').innerHTML = '';
   document.getElementById('search-empty').style.display = 'none';
 
+  // NSFW banner
+  const nsfwBanner = document.getElementById('search-nsfw-banner');
+  if (nsfwBanner) nsfwBanner.style.display = isAdult ? 'flex' : 'none';
+
   const loadingEl = document.getElementById('search-loading');
   loadingEl.style.display = 'flex';
 
   try {
-    const data = await searchGames(query.trim());
+    const data = await searchGames(query.trim(), ordering, ageRating);
     const grid  = document.getElementById('search-grid');
 
-    if (!data.results || data.results.length === 0) {
+    // If NOT adult mode, client-side filter out Adults Only (esrb id 5)
+    let results = data.results || [];
+    if (!isAdult) {
+      results = results.filter(g => !g.esrb_rating || g.esrb_rating.id !== 5);
+    }
+
+    if (!results.length) {
       document.getElementById('search-empty').style.display = 'block';
     } else {
-      data.results.forEach((game, i) => {
+      results.forEach((game, i) => {
         const card = renderCard(game);
         card.style.animationDelay = `${i * 25}ms`;
         grid.appendChild(card);
@@ -507,6 +527,30 @@ function renderDetailModal(game) {
     <span class="star ${i < curRating ? 'lit' : ''}" data-value="${i+1}" title="${i+1}/10">★</span>
   `).join('');
 
+  const esrb = game.esrb_rating;
+  const esrbMap = {
+    'Everyone':        { label: 'Everyone',     color: '#4caf50', icon: 'E' },
+    'Everyone 10+':    { label: 'Everyone 10+', color: '#8bc34a', icon: 'E10+' },
+    'Teen':            { label: 'Teen',          color: '#ffd166', icon: 'T' },
+    'Mature':          { label: 'Mature',        color: '#ff9800', icon: 'M' },
+    'Adults Only':     { label: 'Adults Only',   color: '#ff3d6b', icon: 'AO' },
+    'Rating Pending':  { label: 'Rating Pending',color: '#8890a8', icon: 'RP' },
+  };
+  const esrbInfo = esrb ? (esrbMap[esrb.name] || { label: esrb.name, color: '#8890a8', icon: '?' }) : null;
+  const esrbHtml = esrbInfo
+    ? `<div class="stat-card">
+         <div class="stat-label">Age Rating</div>
+         <div class="stat-value">
+           <span class="esrb-badge" style="background:${esrbInfo.color}22;color:${esrbInfo.color};border-color:${esrbInfo.color}55;">
+             <span class="esrb-icon">${esrbInfo.icon}</span>${escHtml(esrbInfo.label)}
+           </span>
+         </div>
+       </div>`
+    : `<div class="stat-card">
+         <div class="stat-label">Age Rating</div>
+         <div class="stat-value" style="color:var(--text-muted)">Not Rated</div>
+       </div>`;
+
   inner.innerHTML = `
     <div class="detail-hero">
       ${coverHtml}
@@ -536,6 +580,7 @@ function renderDetailModal(game) {
           <div class="stat-label">Platforms</div>
           <div class="stat-value" style="font-size:0.8rem;color:var(--text-secondary)">${escHtml(platforms)}</div>
         </div>
+        ${esrbHtml}
       </div>
 
       <div class="detail-desc" id="detail-desc">${escHtml(description)}</div>
@@ -868,7 +913,12 @@ function openCustomGameModal(editId = null) {
   document.getElementById('cg-platform').value = '';
   document.getElementById('cg-cover').value = '';
   document.getElementById('cg-notes').value = '';
+  document.getElementById('cg-age-rating').value = '';
   document.getElementById('cg-rating-display').textContent = '—';
+
+  // Clear validation errors
+  document.querySelectorAll('.cg-field-error').forEach(el => el.classList.remove('cg-field-error'));
+  document.querySelectorAll('.cg-error-msg').forEach(el => el.remove());
 
   // Reset cover preview
   const preview = document.getElementById('cg-cover-preview');
@@ -896,6 +946,7 @@ function openCustomGameModal(editId = null) {
       document.getElementById('cg-genres').value = game.genres || '';
       document.getElementById('cg-year').value = game.year || '';
       document.getElementById('cg-platform').value = game.platform || '';
+      document.getElementById('cg-age-rating').value = game.ageRating || '';
       document.getElementById('cg-notes').value = game.notes || '';
       cgRating = game.rating || 0;
       cgStatus = game.status || 'plantoplay';
@@ -948,10 +999,37 @@ function setupCgStars() {
 }
 
 function saveCustomGameFromForm() {
-  const title = document.getElementById('cg-title').value.trim();
-  if (!title) {
-    showToast('Nama game harus diisi!', 'error');
-    document.getElementById('cg-title').focus();
+  const title    = document.getElementById('cg-title').value.trim();
+  const genres   = document.getElementById('cg-genres').value.trim();
+  const platform = document.getElementById('cg-platform').value.trim();
+
+  // ── Required-field validation ──
+  const errors = [];
+  if (!title)    errors.push({ field: 'cg-title',    msg: 'Nama game harus diisi!' });
+  if (!genres)   errors.push({ field: 'cg-genres',   msg: 'Genre harus diisi!' });
+  if (!platform) errors.push({ field: 'cg-platform', msg: 'Platform harus diisi!' });
+
+  // Remove old error states
+  document.querySelectorAll('.cg-field-error').forEach(el => el.classList.remove('cg-field-error'));
+  document.querySelectorAll('.cg-error-msg').forEach(el => el.remove());
+
+  if (errors.length > 0) {
+    errors.forEach(({ field, msg }) => {
+      const input = document.getElementById(field);
+      if (input) {
+        input.classList.add('cg-field-error');
+        const errEl = document.createElement('span');
+        errEl.className = 'cg-error-msg';
+        errEl.textContent = msg;
+        input.parentNode.appendChild(errEl);
+      }
+    });
+    // Shake the save button
+    const saveBtn = document.getElementById('custom-game-save');
+    saveBtn.classList.add('btn-shake');
+    setTimeout(() => saveBtn.classList.remove('btn-shake'), 500);
+    showToast(`${errors.length} field wajib belum diisi!`, 'error');
+    document.getElementById(errors[0].field)?.focus();
     return;
   }
 
@@ -962,6 +1040,7 @@ function saveCustomGameFromForm() {
     genres: document.getElementById('cg-genres').value.trim(),
     year: document.getElementById('cg-year').value.trim(),
     platform: document.getElementById('cg-platform').value.trim(),
+    ageRating: document.getElementById('cg-age-rating').value,
     cover: coverValue,
     notes: document.getElementById('cg-notes').value.trim(),
     rating: cgRating,
@@ -1017,6 +1096,28 @@ function openCustomDetailModal(id) {
     `<span class="star ${i < curRating ? 'lit' : ''}" data-value="${i+1}">★</span>`
   ).join('');
 
+  const customEsrbMap = {
+    'Everyone':     { label: 'Everyone',     color: '#4caf50', icon: 'E' },
+    'Everyone 10+': { label: 'Everyone 10+', color: '#8bc34a', icon: 'E10+' },
+    'Teen':         { label: 'Teen',          color: '#ffd166', icon: 'T' },
+    'Mature':       { label: 'Mature',        color: '#ff9800', icon: 'M' },
+    'Adults Only':  { label: 'Adults Only',   color: '#ff3d6b', icon: 'AO' },
+  };
+  const customEsrbInfo = game.ageRating ? customEsrbMap[game.ageRating] : null;
+  const customEsrbHtml = customEsrbInfo
+    ? `<div class="stat-card">
+         <div class="stat-label">Age Rating</div>
+         <div class="stat-value">
+           <span class="esrb-badge" style="background:${customEsrbInfo.color}22;color:${customEsrbInfo.color};border-color:${customEsrbInfo.color}55;">
+             <span class="esrb-icon">${customEsrbInfo.icon}</span>${escHtml(customEsrbInfo.label)}
+           </span>
+         </div>
+       </div>`
+    : `<div class="stat-card">
+         <div class="stat-label">Age Rating</div>
+         <div class="stat-value" style="color:var(--text-muted)">Tidak Diketahui</div>
+       </div>`;
+
   inner.innerHTML = `
     <div class="detail-hero">
       ${coverHtml}
@@ -1048,6 +1149,7 @@ function openCustomDetailModal(id) {
           <div class="stat-label">Rating Kamu</div>
           <div class="stat-value" style="color:var(--gold)">${curRating ? `★ ${curRating}/10` : '—'}</div>
         </div>
+        ${customEsrbHtml}
       </div>
 
       ${game.notes ? `
@@ -1375,6 +1477,161 @@ function setupCoverUpload() {
 }
 
 // ============================================================
+//  BACKUP MODAL
+// ============================================================
+
+function openBackupModal() {
+  document.getElementById('backup-modal').style.display = 'flex';
+  // Reset import state
+  document.getElementById('import-preview').style.display = 'none';
+  document.getElementById('import-actions').style.display = 'none';
+  document.getElementById('import-file-input').value = '';
+  pendingImportData = null;
+}
+
+function closeBackupModal() {
+  document.getElementById('backup-modal').style.display = 'none';
+}
+
+// ============================================================
+//  EXPORT
+// ============================================================
+
+function exportData() {
+  const library    = getLibrary();
+  const customGames = getCustomGames();
+  const username   = getUsername();
+
+  // Collect all comment keys
+  const comments = {};
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith('gv_comments_')) {
+      const gameId = key.replace('gv_comments_', '');
+      try { comments[gameId] = JSON.parse(localStorage.getItem(key) || '[]'); } catch {}
+    }
+  }
+
+  const exportObj = {
+    exportedAt: new Date().toISOString(),
+    version: '1.0',
+    username,
+    library,
+    customGames,
+    comments,
+  };
+
+  const blob = new Blob([JSON.stringify(exportObj, null, 2)], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = `gamembrance-backup-${new Date().toISOString().split('T')[0]}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+
+  showToast('Backup berhasil didownload! 💾', 'success');
+}
+
+// ============================================================
+//  IMPORT
+// ============================================================
+
+let pendingImportData = null;
+
+function handleImportFile(e) {
+  const file = e.target.files[0];
+  if (file) processImportFile(file);
+}
+
+function processImportFile(file) {
+  if (!file.name.endsWith('.json') && file.type !== 'application/json') {
+    showToast('Hanya file .json yang diterima!', 'error');
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const data = JSON.parse(ev.target.result);
+      if (!data.library && !data.customGames) {
+        throw new Error('Format file tidak valid');
+      }
+      pendingImportData = data;
+      showImportPreview(data);
+    } catch (err) {
+      showToast('File tidak valid atau rusak!', 'error');
+      console.error(err);
+    }
+  };
+  reader.readAsText(file);
+}
+
+function showImportPreview(data) {
+  const libCount     = Object.keys(data.library || {}).length;
+  const customCount  = Object.keys(data.customGames || {}).length;
+  const commentCount = Object.values(data.comments || {}).reduce((acc, arr) => acc + arr.length, 0);
+  const exportedAt   = data.exportedAt ? new Date(data.exportedAt).toLocaleString('id-ID') : '—';
+
+  const preview = document.getElementById('import-preview');
+  preview.innerHTML = `
+    <div class="import-preview-inner">
+      <div class="import-preview-title">📋 Preview Backup</div>
+      <div class="import-stats">
+        <div class="import-stat"><span class="import-stat-num">${libCount}</span><span>Games di Library</span></div>
+        <div class="import-stat"><span class="import-stat-num">${customCount}</span><span>Custom Games</span></div>
+        <div class="import-stat"><span class="import-stat-num">${commentCount}</span><span>Komentar</span></div>
+      </div>
+      <div class="import-meta">
+        ${data.username ? `<span>👤 ${escHtml(data.username)}</span>` : ''}
+        <span>📅 ${exportedAt}</span>
+      </div>
+    </div>
+  `;
+  preview.style.display = 'block';
+  document.getElementById('import-actions').style.display = 'flex';
+}
+
+function confirmImport() {
+  if (!pendingImportData) return;
+
+  const { library = {}, customGames = {}, comments = {}, username } = pendingImportData;
+
+  // Merge library (imported wins on conflict)
+  const existingLib = getLibrary();
+  saveLibrary({ ...existingLib, ...library });
+
+  // Merge custom games
+  const existingCustom = getCustomGames();
+  saveCustomGames({ ...existingCustom, ...customGames });
+
+  // Merge comments (append unique)
+  Object.entries(comments).forEach(([gameId, importedComments]) => {
+    const existing = getComments(gameId);
+    const existingIds = new Set(existing.map(c => c.id));
+    const merged = [...existing, ...importedComments.filter(c => !existingIds.has(c.id))];
+    saveComments(gameId, merged);
+  });
+
+  // Optionally restore username if none set
+  if (username && !getUsername()) {
+    saveUsername(username);
+    updateNavUsername();
+  }
+
+  closeBackupModal();
+  pendingImportData = null;
+
+  showToast('Data berhasil diimport! 🎉', 'success');
+
+  // Refresh current view
+  if (currentView === 'mylist') {
+    const activeTab = document.querySelector('.list-tab.active')?.dataset.tab || 'playing';
+    renderMyList(activeTab);
+  }
+}
+
+// ============================================================
 //  BOOTSTRAP / EVENT LISTENERS
 // ============================================================
 
@@ -1526,6 +1783,17 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e.key === 'Enter') saveCustomGameFromForm();
   });
 
+  // Clear validation errors on input
+  ['cg-title', 'cg-genres', 'cg-platform'].forEach(id => {
+    document.getElementById(id)?.addEventListener('input', () => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.classList.remove('cg-field-error');
+        el.parentNode.querySelector('.cg-error-msg')?.remove();
+      }
+    });
+  });
+
   // Escape closes modals
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') {
@@ -1534,6 +1802,52 @@ document.addEventListener('DOMContentLoaded', () => {
       closeCustomGameModal();
     }
   });
+
+  // Search filter dropdowns — re-run search when changed
+  document.getElementById('search-sort-select')?.addEventListener('change', () => {
+    const q = document.getElementById('search-input').value.trim();
+    if (q) doSearch(q);
+  });
+
+  document.getElementById('search-age-filter')?.addEventListener('change', () => {
+    const q = document.getElementById('search-input').value.trim();
+    if (q) doSearch(q);
+  });
+
+  // Age rating filter
+  document.getElementById('age-rating-filter').addEventListener('change', e => {
+    currentAgeRating = e.target.value;
+    loadGames(true);
+  });
+
+  // ── Backup / Export / Import ──
+  document.getElementById('nav-export').addEventListener('click', openBackupModal);
+  document.getElementById('backup-close').addEventListener('click', closeBackupModal);
+  document.getElementById('backup-modal').addEventListener('click', e => {
+    if (e.target === document.getElementById('backup-modal')) closeBackupModal();
+  });
+  document.getElementById('export-btn').addEventListener('click', exportData);
+  document.getElementById('import-file-input').addEventListener('change', handleImportFile);
+
+  // Drag & drop on import zone
+  const dropZone = document.getElementById('import-drop-zone');
+  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (file) processImportFile(file);
+  });
+
+  document.getElementById('import-cancel-btn').addEventListener('click', () => {
+    document.getElementById('import-preview').style.display = 'none';
+    document.getElementById('import-actions').style.display = 'none';
+    document.getElementById('import-file-input').value = '';
+    pendingImportData = null;
+  });
+
+  document.getElementById('import-confirm-btn').addEventListener('click', confirmImport);
 
   // Initial load
   showView('home-view');
